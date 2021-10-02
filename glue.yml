@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Glue Stack Layer of CloudFormation template for migrating data from Reddit to s3
+
+Parameters:
+  pGlueDBName:
+      Default: 'reddit_glue_db'
+      Type: String
+      Description: glue database name
+
+  pBucketName:
+        Type: String
+        Description: s3 destination bucket
+
+  pGlueTableRaw:
+        Default: 'raw_reddit_subreddits'
+        Type: String
+        Description: Glue Raw Data Table
+
+Resources:
+
+  rGlueDatabase:
+    Type: "AWS::Glue::Database"
+    Properties:
+      DatabaseInput:
+        Name: !Ref pGlueDBName
+      CatalogId: !Ref AWS::AccountId
+
+  rGlueTableRaw:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref rGlueDatabase
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Ref pGlueTableRaw
+        Parameters: { "classification" : "json" }
+        StorageDescriptor:
+          Location:
+            Fn::Join:
+                - ''
+                - - "s3://"
+                  - !Ref pBucketName
+                  - "/raw_reddit_subreddits/"
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          BucketColumns: []
+          SortColumns: []
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+            Parameters:
+              serialization.format: '1'
+          StoredAsSubDirectories: false
+          Columns:
+            - {Name: subreddit_id, Type: string}
+            - {Name: subreddit_url, Type: string}
+            - {Name: subreddit_cretaed, Type: string}
+            - {Name: subreddit_selftext, Type: string}
+            - {Name: subreddit_upvote_ratio, Type: string}
+            - {Name: subreddit_author, Type: string}
+            - {Name: subreddit_author_premium, Type: boolean}
+            - {Name: subreddit_over_18, Type: boolean}
+            - {Name: subreddit_treatment_tags, Type: string}
+
+        PartitionKeys: []
+        TableType: EXTERNAL_TABLE
+
+Outputs:
+
+  oGlueDatabase:
+    Description: Database created for Glue
+    Value: !Ref rGlueDatabase
+    Export:
+      Name: !Sub "${AWS::StackName}-oGlueDatabase"
+
+  oGlueTableRaw:
+    Description: table created for Glue
+    Value: !Ref rGlueTableRaw
+    Export:
+      Name: !Sub "${AWS::StackName}-oGlueTableRaw"
